@@ -28,7 +28,7 @@ func Execute(c *Command) {
 		c.OnError(err)
 	}
 
-	log.Println(prefix, "executing \x1b[36m", c.Cmd.String(), "\x1b[0m")
+	log.Println(prefix, "executing \x1b[33m", c.Cmd.String(), "\x1b[0m")
 	if err := c.Cmd.Start(); err != nil {
 		log.Println(prefix, "error: \x1b[31m", err.Error(), "\x1b[0m")
 		c.OnError(err)
@@ -42,7 +42,7 @@ func Execute(c *Command) {
 			scanner := bufio.NewScanner(stdout)
 			for scanner.Scan() {
 				line := scanner.Text()
-				log.Printf("%s\x1b[36mOutput: %s\n", prefix, line)
+				log.Printf("%s\x1b[36m%s\n", prefix, line)
 				c.OnOutput(line)
 			}
 

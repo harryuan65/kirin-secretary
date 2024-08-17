@@ -3,6 +3,7 @@ package pages
 import (
 	"os/exec"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/layout"
@@ -24,19 +25,19 @@ func (p *YtDlpTab) GetTab() *container.TabItem {
 	return container.NewTabItem(
 		"yt-dlp",
 		container.NewVBox(
-			widget.NewLabel("YT-DLP"),
-			container.New(layout.NewGridLayout(3), widget.NewLabel("yt-dlp version:"), p.VersionLabel(), p.updateButton()),
+			widget.NewLabel("yt-dlp"),
+			p.versionBlock(),
 			container.New(layout.NewGridLayout(2), widget.NewLabel("ffmpeg:"), p.ffmpegStatusLabel()),
 		),
 	)
 }
 
-func (p *YtDlpTab) VersionLabel() *widget.Label {
+func (p *YtDlpTab) versionBlock() *fyne.Container {
 	versionString := binding.NewString()
 	versionString.Set(ctrl.LoadingText)
 	versionLabel := widget.NewLabelWithData(versionString)
 
-	go func() {
+	versionCheck := func() {
 		ctrl.Execute(&ctrl.Command{
 			Label:     "checking yt-dlp version",
 			Cmd:       exec.Command("yt-dlp", "--version"),
@@ -48,9 +49,39 @@ func (p *YtDlpTab) VersionLabel() *widget.Label {
 				versionString.Set(s)
 			},
 		})
-	}()
+	}
+	go versionCheck()
 
-	return versionLabel
+	updateStatusString := binding.NewString()
+	updateStatusString.Set("")
+	updateStatusLabel := widget.NewLabelWithData(updateStatusString)
+	updateStatusLabel.Wrapping = fyne.TextWrapBreak
+
+	updateButton := widget.NewButton("Update", nil)
+	updateButton.OnTapped = func() {
+		updateStatusString.Set(ctrl.LoadingText)
+		ctrl.Execute(&ctrl.Command{
+			Label: "update yt-dlp",
+			Cmd:   exec.Command("pip", "install", "--upgrade", "yt-dlp"),
+			OnSuccess: func() {
+				// Run check version again
+				versionCheck()
+			},
+			OnError: func(err error) {},
+			OnOutput: func(s string) {
+				updateStatusString.Set(s)
+			},
+		})
+	}
+
+	return container.New(
+		layout.NewGridLayoutWithRows(2),
+		container.New(layout.NewGridLayout(2),
+			container.New(layout.NewGridLayout(2), widget.NewLabel("yt-dlp version:"), versionLabel),
+			updateButton,
+		),
+		updateStatusLabel,
+	)
 }
 
 func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
@@ -59,6 +90,7 @@ func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
 	loadStatusString := binding.NewString()
 	loadStatusString.Set(ctrl.LoadingText)
 	label := widget.NewLabelWithData(loadStatusString)
+	label.Wrapping = fyne.TextWrapBreak
 
 	p.state.ffmpegInstalled.AddListener(binding.NewDataListener(func() {
 		if installed, _ := p.state.ffmpegInstalled.Get(); installed {
@@ -85,13 +117,6 @@ func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
 	}()
 
 	return label
-}
-
-func (p *YtDlpTab) updateButton() *widget.Button {
-	return widget.NewButton("Update", func() {
-		installed, _ := p.state.ffmpegInstalled.Get()
-		p.state.ffmpegInstalled.Set(!installed)
-	})
 }
 
 func NewYtDlpTab() *container.TabItem {
