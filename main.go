@@ -3,17 +3,23 @@ package main
 import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/widget"
+
+	"github.com/harryuan65/kirin_secretary/pages"
 )
 
 func main() {
-	a := app.New()
-	w := a.NewWindow("Test")
+	myApp := app.New()
+	myWindow := myApp.NewWindow("TabContainer Widget")
 
-	content := widget.NewLabel("Content")
-	w.SetContent(container.NewVBox(widget.NewLabel("Test"), content, widget.NewButton("Go", func() {
-		content.SetText("Clicked")
-	})))
+	var tabs []*container.TabItem = []*container.TabItem{
+		pages.NewYtDlpTab(),
+	}
+	appTabs := container.NewAppTabs(
+		tabs...,
+	)
 
-	w.ShowAndRun()
+	appTabs.SetTabLocation(container.TabLocationLeading)
+
+	myWindow.SetContent(appTabs)
+	myWindow.ShowAndRun()
 }
