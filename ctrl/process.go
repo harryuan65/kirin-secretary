@@ -3,6 +3,7 @@ package ctrl
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os/exec"
 
 	"fyne.io/fyne/v2/data/binding"
@@ -59,4 +60,23 @@ func BindExecOutput(cmd *exec.Cmd, bindStr binding.String) {
 			bindStr.Set(err.Error())
 		}
 	}()
+}
+
+type Command struct {
+	Label     string
+	Cmd       *exec.Cmd
+	OnSuccess func()
+	OnError   func(error)
+}
+
+func Execute(c *Command) {
+	prefix := fmt.Sprint(" \x1b[35m[", c.Label, "] \x1b[0m")
+	log.Println(prefix, "executing \x1b[36m", c.Cmd.String(), "\x1b[0m")
+	if err := c.Cmd.Start(); err != nil {
+		log.Println(prefix, "error: \x1b[31m", err.Error(), "\x1b[0m")
+		c.OnError(err)
+	}
+
+	c.OnSuccess()
+	log.Println(prefix, "\x1b[32msuccess.\x1b[0m")
 }
