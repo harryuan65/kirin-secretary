@@ -12,6 +12,7 @@ import (
 )
 
 type YtDlpState struct {
+	version         string
 	ffmpegInstalled binding.Bool
 }
 
@@ -24,10 +25,32 @@ func (p *YtDlpTab) GetTab() *container.TabItem {
 		"yt-dlp",
 		container.NewVBox(
 			widget.NewLabel("YT-DLP"),
-			widget.NewLabel("Version"),
-			container.New(layout.NewGridLayout(3), widget.NewLabel("ffmpeg status:"), p.ffmpegStatusLabel(), p.updateButton()),
+			container.New(layout.NewGridLayout(3), widget.NewLabel("yt-dlp version:"), p.VersionLabel(), p.updateButton()),
+			container.New(layout.NewGridLayout(2), widget.NewLabel("ffmpeg:"), p.ffmpegStatusLabel()),
 		),
 	)
+}
+
+func (p *YtDlpTab) VersionLabel() *widget.Label {
+	versionString := binding.NewString()
+	versionString.Set(ctrl.LoadingText)
+	versionLabel := widget.NewLabelWithData(versionString)
+
+	go func() {
+		ctrl.Execute(&ctrl.Command{
+			Label:     "checking yt-dlp version",
+			Cmd:       exec.Command("yt-dlp", "--version"),
+			OnSuccess: func() {},
+			OnError: func(err error) {
+				versionString.Set(err.Error())
+			},
+			OnOutput: func(s string) {
+				versionString.Set(s)
+			},
+		})
+	}()
+
+	return versionLabel
 }
 
 func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
@@ -48,7 +71,7 @@ func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
 	// Run command on component creation
 	go func() {
 		c := &ctrl.Command{
-			Label: "check ffmpeg installation",
+			Label: "checking ffmpeg installation",
 			Cmd:   exec.Command("ffmpeg", "-version"),
 			OnSuccess: func() {
 				p.state.ffmpegInstalled.Set(true)
@@ -63,25 +86,6 @@ func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
 
 	return label
 }
-
-// func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
-// 	// Binding String
-// 	// Label with the binding string
-// 	// State Binding Bool, changes change the string
-
-// 	ffmpegStatus := binding.NewString()
-// 	ffmpegStatus.Set(ctrl.LoadingText)
-// 	ffmpegStatusLabel := widget.NewLabelWithData(ffmpegStatus)
-// 	p.state.ffmpegInstalled.AddListener(binding.NewDataListener(func() {
-// 		if installed, _ := p.state.ffmpegInstalled.Get(); installed {
-// 			ffmpegStatus.Set("✅")
-// 		} else {
-// 			ffmpegStatus.Set("❌")
-// 		}
-// 	}))
-
-// 	return ffmpegStatusLabel
-// }
 
 func (p *YtDlpTab) updateButton() *widget.Button {
 	return widget.NewButton("Update", func() {
