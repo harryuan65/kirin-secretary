@@ -10,6 +10,8 @@ import (
 
 const LoadingText = "Loading..."
 
+// BindExecOutput binds the cmd output to a binding.String that you used to bind on a UI element.
+// Usage ctrl.BindExecOutput(exec.Command("bash", "-c", "for i in {1..5}; do echo $i; sleep 1; done"), loadStatusString)
 func BindExecOutput(cmd *exec.Cmd, bindStr binding.String) {
 	// Get the output pipe
 	stdout, err := cmd.StdoutPipe()
