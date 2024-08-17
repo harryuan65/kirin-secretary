@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 
@@ -9,7 +10,9 @@ import (
 
 func main() {
 	myApp := app.New()
-	myWindow := myApp.NewWindow("TabContainer Widget")
+	w := myApp.NewWindow("TabContainer Widget")
+	w.Resize(fyne.NewSize(400, 300))
+	w.SetTitle("Kirin Secretary")
 
 	var tabs []*container.TabItem = []*container.TabItem{
 		pages.NewYtDlpTab(),
@@ -20,6 +23,6 @@ func main() {
 
 	appTabs.SetTabLocation(container.TabLocationLeading)
 
-	myWindow.SetContent(appTabs)
-	myWindow.ShowAndRun()
+	w.SetContent(appTabs)
+	w.ShowAndRun()
 }
