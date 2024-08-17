@@ -1,7 +1,12 @@
 package pages
 
 import (
+	"fmt"
+	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -12,9 +17,17 @@ import (
 	"github.com/harryuan65/kirin_secretary/ctrl"
 )
 
+var downloadTypes = []string{
+	"video",
+	"music",
+	"sound",
+}
+
 type YtDlpState struct {
-	version         string
 	ffmpegInstalled binding.Bool
+	url             binding.String
+	outDir          binding.String
+	downloadType    binding.String
 }
 
 type YtDlpTab struct {
@@ -28,6 +41,10 @@ func (p *YtDlpTab) GetTab() *container.TabItem {
 			widget.NewLabel("yt-dlp"),
 			p.versionBlock(),
 			p.ffmpegStatusBlock(),
+			p.outDirBlock(),
+			p.downloadTypeBlock(),
+			p.downloadUrlBlock(),
+			p.downloadBlock(),
 		),
 	)
 }
@@ -36,6 +53,7 @@ func (p *YtDlpTab) versionBlock() *fyne.Container {
 	versionString := binding.NewString()
 	versionString.Set(ctrl.LoadingText)
 	versionLabel := widget.NewLabelWithData(versionString)
+	versionLabel.TextStyle.Bold = true
 
 	versionCheck := func() {
 		ctrl.Execute(&ctrl.Command{
@@ -74,11 +92,11 @@ func (p *YtDlpTab) versionBlock() *fyne.Container {
 		})
 	}
 
-	return container.New(
-		layout.NewGridLayoutWithRows(2),
+	return container.NewVBox(
 		container.New(
-			layout.NewGridLayout(3),
+			layout.NewGridLayout(4),
 			container.New(layout.NewGridLayout(2), widget.NewLabel("yt-dlp version:"), versionLabel),
+			widget.NewLabel(""),
 			updateButton,
 		),
 		updateStatusLabel,
@@ -120,10 +138,158 @@ func (p *YtDlpTab) ffmpegStatusBlock() *fyne.Container {
 	return container.New(layout.NewGridLayout(2), widget.NewLabel("ffmpeg:"), label)
 }
 
+func (p *YtDlpTab) outDirBlock() *fyne.Container {
+	e := widget.NewEntryWithData(p.state.outDir)
+	e.PlaceHolder = "Set download directory..."
+
+	return container.New(
+		layout.NewGridLayout(2),
+		widget.NewLabel("Output Folder"),
+		e,
+	)
+}
+
+func (p *YtDlpTab) downloadTypeBlock() *fyne.Container {
+	r := widget.NewRadioGroup(downloadTypes, func(s string) {
+		p.state.downloadType.Set(s)
+		log.Println("selected: ", s)
+	})
+	r.Selected, _ = p.state.downloadType.Get()
+
+	return container.New(layout.NewGridLayout(2),
+		widget.NewLabel("Download Type"),
+		r,
+	)
+}
+
+func (p *YtDlpTab) downloadUrlBlock() *fyne.Container {
+	e := widget.NewEntryWithData(p.state.url)
+	e.PlaceHolder = "https://www.youtube.com/watch?v=xxxx"
+
+	return container.New(
+		layout.NewGridLayout(2),
+		widget.NewLabel("Video URL(https)"),
+		e,
+	)
+}
+
+func (p *YtDlpTab) downloadBlock() *fyne.Container {
+	downloadStatusString := binding.NewString()
+	downloadStatusLabel := widget.NewLabelWithData(downloadStatusString)
+	downloadStatusLabel.Wrapping = fyne.TextWrapBreak
+
+	handleDownload := func() {
+		downloadStatusString.Set(ctrl.LoadingText)
+		ffmpegInstalled, _ := p.state.ffmpegInstalled.Get()
+		url, _ := p.state.url.Get()
+		outDir, _ := p.state.outDir.Get()
+		downloadType, _ := p.state.downloadType.Get()
+
+		fmt.Println("p.state.ffmpegInstalled", ffmpegInstalled)
+		fmt.Println("p.state.url", url)
+		fmt.Println("p.state.outDir", outDir)
+		fmt.Println("p.state.downloadType", downloadType)
+		if !ctrl.IsDir(outDir) {
+			downloadStatusString.Set(fmt.Sprintf("Error: %s is not a folder", outDir))
+			return
+		}
+
+		if !strings.HasPrefix(url, "https://www.youtube.com") {
+			downloadStatusString.Set(fmt.Sprintf("Error: %s is not a youtube url", url))
+			return
+		}
+
+		downloadArgs := []string{}
+		switch downloadType {
+		case "music":
+			if !ffmpegInstalled {
+				downloadStatusString.Set("You need ffmpeg and ffprobe to downlaod as MP3")
+				return
+			}
+			downloadArgs = append(downloadArgs, "-x", "--audio-format", "mp3")
+		case "sound":
+			if !ffmpegInstalled {
+				downloadStatusString.Set("You need ffmpeg and ffprobe to downlaod as WAV")
+				return
+			}
+			downloadArgs = append(downloadArgs, "-x", "--audio-format", "wav")
+		default:
+			downloadArgs = append(downloadArgs, "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
+		}
+		downloadArgs = append(downloadArgs, url)
+		cmd := exec.Command("yt-dlp", downloadArgs...)
+		log.Println("[os] cd into outDir...", outDir)
+		os.Chdir(outDir)
+		ctrl.Execute(&ctrl.Command{
+			Label:     "yt-dlp",
+			Cmd:       cmd,
+			OnSuccess: func() {},
+			OnError: func(err error) {
+				errString := fmt.Sprintf("Failed to download: %s \nError:%v", cmd.String(), err.Error())
+				fmt.Println(errString)
+				downloadStatusString.Set(errString)
+			},
+			OnOutput: func(line string) {
+				acc, _ := downloadStatusString.Get()
+				if len(acc) > 500 {
+					downloadStatusString.Set("")
+				}
+				downloadStatusString.Set(acc + "\n" + line)
+			},
+		})
+	}
+
+	handleClearOutput := func() {
+		downloadStatusString.Set("")
+	}
+
+	handleOpenOutDir := func() {
+		outDir, _ := p.state.outDir.Get()
+		log.Println("[yt-dlp] opening dir", outDir)
+		ctrl.OpenInExplorer(outDir)
+	}
+
+	return container.NewVBox(
+		container.New(
+			layout.NewGridLayout(2),
+			widget.NewLabel(""),
+			widget.NewButton("Download", handleDownload),
+		),
+		container.New(
+			layout.NewGridLayout(2),
+			widget.NewLabel(""),
+			widget.NewButton("Open Download Folder", handleOpenOutDir),
+		),
+		container.New(
+			layout.NewGridLayout(2),
+			widget.NewLabel(""),
+			widget.NewButton("Clear Output", handleClearOutput),
+		),
+		widget.NewSeparator(),
+		downloadStatusLabel,
+	)
+}
+
 func NewYtDlpTab() *container.TabItem {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// outDir: Default to home/downloads
+	outDir := binding.NewString()
+	outDir.Set(filepath.Join(homeDir, "Downloads"))
+
+	// downloadType: Default to music
+	downloadType := binding.NewString()
+	downloadType.Set(downloadTypes[0])
+
 	tab := &YtDlpTab{
 		state: &YtDlpState{
 			ffmpegInstalled: binding.NewBool(),
+			url:             binding.NewString(),
+			outDir:          outDir,
+			downloadType:    downloadType,
 		},
 	}
 
