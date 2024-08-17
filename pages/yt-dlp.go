@@ -27,7 +27,7 @@ func (p *YtDlpTab) GetTab() *container.TabItem {
 		container.NewVBox(
 			widget.NewLabel("yt-dlp"),
 			p.versionBlock(),
-			container.New(layout.NewGridLayout(2), widget.NewLabel("ffmpeg:"), p.ffmpegStatusLabel()),
+			p.ffmpegStatusBlock(),
 		),
 	)
 }
@@ -76,7 +76,8 @@ func (p *YtDlpTab) versionBlock() *fyne.Container {
 
 	return container.New(
 		layout.NewGridLayoutWithRows(2),
-		container.New(layout.NewGridLayout(2),
+		container.New(
+			layout.NewGridLayout(3),
 			container.New(layout.NewGridLayout(2), widget.NewLabel("yt-dlp version:"), versionLabel),
 			updateButton,
 		),
@@ -84,7 +85,7 @@ func (p *YtDlpTab) versionBlock() *fyne.Container {
 	)
 }
 
-func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
+func (p *YtDlpTab) ffmpegStatusBlock() *fyne.Container {
 	// Status string is a bind.string, listen to "installed" state changes and update it
 	// Set status string to the label
 	loadStatusString := binding.NewString()
@@ -116,7 +117,7 @@ func (p *YtDlpTab) ffmpegStatusLabel() *widget.Label {
 		ctrl.Execute(c)
 	}()
 
-	return label
+	return container.New(layout.NewGridLayout(2), widget.NewLabel("ffmpeg:"), label)
 }
 
 func NewYtDlpTab() *container.TabItem {
