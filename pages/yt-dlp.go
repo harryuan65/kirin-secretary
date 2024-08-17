@@ -1,17 +1,15 @@
 package pages
 
 import (
-	"bufio"
-	"fmt"
 	"os/exec"
 
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-)
 
-const LoadingText = "Loading..."
+	"github.com/harryuan65/kirin_secretary/ctrl"
+)
 
 type YtDlpState struct {
 	ffmpegInstalled binding.Bool
@@ -60,56 +58,12 @@ func (p *YtDlpTab) updateButton() *widget.Button {
 }
 
 func (p *YtDlpTab) loadLabel() *widget.Label {
-	// Create the command you want to execute
-	cmd := exec.Command("bash", "-c", "for i in {1..5}; do echo $i; sleep 1; done")
 	loadStatusString := binding.NewString()
-	loadStatusString.Set(LoadingText)
+	loadStatusString.Set(ctrl.LoadingText)
 
 	label := widget.NewLabelWithData(loadStatusString)
-	// Get the output pipe
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Printf("Error obtaining stdout pipe: %v\n", err)
-		return label
-	}
-
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting command: %v\n", err)
-		return label
-	}
-
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Printf("Output: %s\n", line)
-			acc, err := loadStatusString.Get()
-			if err != nil {
-				loadStatusString.Set(err.Error())
-				break
-			}
-
-			// Overwrite the loading text
-			if acc == LoadingText {
-				loadStatusString.Set(line)
-			} else {
-				loadStatusString.Set(acc + line)
-			}
-		}
-
-		// Check for scanner errors
-		if err := scanner.Err(); err != nil {
-			fmt.Printf("Error reading stdout: %v\n", err)
-			loadStatusString.Set(err.Error())
-		}
-
-		// Wait for the command to finish
-		if err := cmd.Wait(); err != nil {
-			fmt.Printf("Command finished with error: %v\n", err)
-			loadStatusString.Set(err.Error())
-		}
-	}()
+	// ctrl.BindExecOutput(exec.Command("bash", "-c", "for i in {1..5}; do echo $i; sleep 1; done"), loadStatusString)
+	ctrl.BindExecOutput(exec.Command("bash", "-c", "for i in {1..5}; do echo $i; sleep 1; done"), loadStatusString)
 
 	return label
 }
