@@ -2,6 +2,7 @@ package ctrl
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os/exec"
@@ -16,6 +17,22 @@ type Command struct {
 	OnError   func(error)
 	// Optional
 	OnOutput func(string)
+}
+
+func ScanLinesWithCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\r'); i >= 0 {
+		// We have a full newline-terminated line.
+		return i + 1, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
 }
 
 func Execute(c *Command) {
@@ -40,23 +57,17 @@ func Execute(c *Command) {
 	if c.OnOutput != nil {
 		go func() {
 			scanner := bufio.NewScanner(stdout)
+			scanner.Split(ScanLinesWithCR)
 			for scanner.Scan() {
 				line := scanner.Text()
 				log.Printf("%s\x1b[36m%s\n", prefix, line)
 				c.OnOutput(line)
 			}
-
-			// Check for scanner errors
-			if err := scanner.Err(); err != nil {
-				log.Printf("%s\x1b[32mError reading stdout: %v\n", prefix, err)
-				c.OnError(err)
-			}
-
-			// Wait for the command to finish
 			if err := c.Cmd.Wait(); err != nil {
-				log.Printf("%s\x1b[32mCommand finished with error: %v\n", prefix, err)
+				log.Printf("%s\x1b[31mError:%s\n", err.Error())
 				c.OnError(err)
 			}
+			c.OnOutput("Success")
 		}()
 	}
 }

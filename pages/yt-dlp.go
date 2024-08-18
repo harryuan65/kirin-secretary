@@ -178,6 +178,9 @@ func (p *YtDlpTab) downloadBlock() *fyne.Container {
 	downloadStatusLabel := widget.NewLabelWithData(downloadStatusString)
 	downloadStatusLabel.Wrapping = fyne.TextWrapBreak
 
+	scrollableStatusLabel := container.NewScroll(downloadStatusLabel)
+	scrollableStatusLabel.SetMinSize(fyne.NewSize(scrollableStatusLabel.Size().Width, 150))
+
 	handleDownload := func() {
 		downloadStatusString.Set(ctrl.LoadingText)
 		ffmpegInstalled, _ := p.state.ffmpegInstalled.Get()
@@ -221,9 +224,11 @@ func (p *YtDlpTab) downloadBlock() *fyne.Container {
 		log.Println("[os] cd into outDir...", outDir)
 		os.Chdir(outDir)
 		ctrl.Execute(&ctrl.Command{
-			Label:     "yt-dlp",
-			Cmd:       cmd,
-			OnSuccess: func() {},
+			Label: "yt-dlp",
+			Cmd:   cmd,
+			OnSuccess: func() {
+				scrollableStatusLabel.ScrollToBottom()
+			},
 			OnError: func(err error) {
 				errString := fmt.Sprintf("Failed to download: %s \nError:%v", cmd.String(), err.Error())
 				fmt.Println(errString)
@@ -231,10 +236,8 @@ func (p *YtDlpTab) downloadBlock() *fyne.Container {
 			},
 			OnOutput: func(line string) {
 				acc, _ := downloadStatusString.Get()
-				if len(acc) > 500 {
-					downloadStatusString.Set("")
-				}
 				downloadStatusString.Set(acc + "\n" + line)
+				scrollableStatusLabel.ScrollToBottom()
 			},
 		})
 	}
@@ -266,7 +269,7 @@ func (p *YtDlpTab) downloadBlock() *fyne.Container {
 			widget.NewButton("Clear Output", handleClearOutput),
 		),
 		widget.NewSeparator(),
-		downloadStatusLabel,
+		scrollableStatusLabel,
 	)
 }
 
